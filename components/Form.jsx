@@ -9,7 +9,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import { signIn } from "next-auth/react"
+import { account } from "../lib/appwrite"; // You'll need to create this config file
+import { ID } from "appwrite";
 
 const Form = ({ type }) => {
   const {
@@ -22,41 +23,35 @@ const Form = ({ type }) => {
   const router = useRouter();
 
   const onSubmit = async (data) => {
-    if (type === "register") {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+    try {
+      if (type === "register") {
+        // Create user account in Appwrite
+        await account.create(
+          ID.unique(), 
+          data.email, 
+          data.password, 
+          data.username
+        );
 
-      if (res.ok) {
-        router.push("/");
-      }
-
-      if (res.error) {
-        toast.error("Something went wrong");
-      }
-    }
-
-    if (type === "login") {
-      const res = await signIn("credentials", {
-        ...data,
-        redirect: false,
-      })
-
-      if (res.ok) {
+        // Create session after registration
+        await account.createEmailPasswordSession(data.email, data.password);
+        
+        toast.success("Account created successfully");
         router.push("/chats");
       }
 
-      if (res.error) {
-        toast.error("Invalid email or password");
+      if (type === "login") {
+        // Create email session for login
+        await account.createEmailPasswordSession(data.email, data.password);
+        
+        toast.success("Logged in successfully");
+        router.push("/chats");
       }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Authentication failed");
     }
   };
-
-  
 
   return (
     <div className="auth">

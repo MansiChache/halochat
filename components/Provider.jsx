@@ -1,13 +1,29 @@
 "use client"
 
-import { SessionProvider } from "next-auth/react"
+import { useState, useEffect } from 'react';
+import { account } from "@/lib/appwrite-config";
 
-const Provider = ({ children, session }) => {
+const Provider = ({ children }) => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const currentUser = await account.get();
+        setUser(currentUser);
+      } catch (error) {
+        setUser(null);
+      }
+    };
+
+    checkUser();
+  }, []);
+
   return (
-    <SessionProvider session={session}>
+    <AppwriteContext.Provider value={{ user, setUser }}>
       {children}
-    </SessionProvider>
-  )
-}
+    </AppwriteContext.Provider>
+  );
+};
 
-export default Provider
+export default Provider;

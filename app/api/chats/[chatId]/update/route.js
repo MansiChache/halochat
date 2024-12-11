@@ -1,24 +1,29 @@
-import Chat from "@models/Chat"
-import { connectToDB } from "@mongodb"
+import { NextResponse } from 'next/server';
+import { account } from '@/lib/appwrite-config';
 
-export const POST = async (req, { params }) => {
+export async function POST(req) {
   try {
-    await connectToDB()
+    const body = await req.json();
+    const { username, profileImage } = body;
 
-    const body = await req.json()
+    // Update user preferences
+    await account.updatePrefs({
+      username,
+      profileImage: profileImage || '/assets/person.jpg'
+    });
 
-    const { chatId } = params
+    // Update account name
+    await account.updateName(username);
 
-    const { name, groupPhoto } = body
-
-    const updatedGroupChat = await Chat.findByIdAndUpdate(
-      chatId,
-      { name, groupPhoto },
-      { new: true }
-    )
-
-    return new Response(JSON.stringify(updatedGroupChat), { status: 200 })
-  } catch (err) {
-    return new Response("Failed to update group chat info", { status: 500 })
+    return NextResponse.json(
+      { message: 'Profile updated successfully' }, 
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update profile' }, 
+      { status: 500 }
+    );
   }
 }

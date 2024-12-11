@@ -1,20 +1,41 @@
 "use client";
 
 import { Logout } from "@mui/icons-material";
-import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { account } from "@/lib/appwrite-config";
+import { useRouter } from "next/navigation";
 
 const TopBar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const currentUser = await account.get();
+        setUser(currentUser);
+      } catch (error) {
+        setUser(null);
+        router.push("/");
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   const handleLogout = async () => {
-    signOut({ callbackUrl: "/" });
+    try {
+      await account.deleteSession('current');
+      router.push("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
-  const { data: session } = useSession();
-  const user = session?.user;
+  if (!user) return null;
 
   return (
     <div className="topbar">
@@ -47,7 +68,7 @@ const TopBar = () => {
 
         <Link href="/profile">
           <img
-            src={user?.profileImage || "/assets/person.jpg"}
+            src={user?.prefs?.profileImage || "/assets/person.jpg"}
             alt="profile"
             className="profilePhoto"
           />

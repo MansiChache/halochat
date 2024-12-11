@@ -1,35 +1,22 @@
-import Chat from "@models/Chat";
-import Message from "@models/Message";
-import User from "@models/User";
-import { connectToDB } from "@mongodb";
+import { Databases, Query } from 'appwrite';
+import { client } from '@/lib/appwrite-config';
 
-export const GET = async (req, { params }) => {
+// Configuration (replace with your Appwrite project details)
+const DATABASE_ID = process.env.APPWRITE_DATABASE_ID;
+const USERS_COLLECTION_ID = process.env.APPWRITE_USERS_COLLECTION_ID;
+
+const databases = new Databases(client);
+
+export const GET = async (req, res) => {
   try {
-    await connectToDB();
+    const allUsers = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION_ID
+    );
 
-    const { userId } = params;
-
-    const allChats = await Chat.find({ members: userId })
-      .sort({ lastMessageAt: -1 })
-      .populate({
-        path: "members",
-        model: User,
-      })
-      .populate({
-        path: "messages",
-        model: Message,
-        populate: {
-          path: "sender seenBy",
-          model: User,
-        },
-      })
-      .exec();
-
-    return new Response(JSON.stringify(allChats), { status: 200 });
+    return new Response(JSON.stringify(allUsers.documents), { status: 200 });
   } catch (err) {
-    console.log(err);
-    return new Response("Failed to get all chats of current user", {
-      status: 500,
-    });
+    console.error(err);
+    return new Response("Failed to get all users", { status: 500 });
   }
 };

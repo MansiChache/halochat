@@ -1,31 +1,43 @@
+// ChatList.jsx
 "use client";
 
-import { useSession } from "next-auth/react";
-import { use, useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { account, databases } from "@/lib/appwrite";
 import ChatBox from "./ChatBox";
 import Loader from "./Loader";
-import { pusherClient } from "@lib/pusher";
 
 const ChatList = ({ currentChatId }) => {
-  const { data: sessions } = useSession();
-  const currentUser = sessions?.user;
-
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [chats, setChats] = useState([]);
   const [search, setSearch] = useState("");
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await account.get();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Failed to fetch user', error);
+      }
+    };
+    fetchUser();
+  }, []);
+
   const getChats = async () => {
     try {
-      const res = await fetch(
-        search !== ""
-          ? `/api/users/${currentUser._id}/searchChat/${search}`
-          : `/api/users/${currentUser._id}`
+      // Adjust the query based on Appwrite's database querying
+      const chatResponse = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
+        process.env.NEXT_PUBLIC_CHATS_COLLECTION_ID,
+        search ? [`members.userId=${currentUser.$id}`, `search=${search}`] : [`members.userId=${currentUser.$id}`]
       );
-      const data = await res.json();
-      setChats(data);
+
+      setChats(chatResponse.documents);
       setLoading(false);
     } catch (err) {
       console.log(err);
+      setLoading(false);
     }
   };
 
@@ -34,37 +46,6 @@ const ChatList = ({ currentChatId }) => {
       getChats();
     }
   }, [currentUser, search]);
-
-  useEffect(() => {
-    if (currentUser) {
-      pusherClient.subscribe(currentUser._id);
-
-      const handleChatUpdate = (updatedChat) => {
-        setChats((allChats) =>
-          allChats.map((chat) => {
-            if (chat._id === updatedChat.id) {
-              return { ...chat, messages: updatedChat.messages };
-            } else {
-              return chat;
-            }
-          })
-        );
-      };
-
-      const handleNewChat = (newChat) => {
-        setChats((allChats) => [...allChats, newChat]);
-      }
-
-      pusherClient.bind("update-chat", handleChatUpdate);
-      pusherClient.bind("new-chat", handleNewChat);
-
-      return () => {
-        pusherClient.unsubscribe(currentUser._id);
-        pusherClient.unbind("update-chat", handleChatUpdate);
-        pusherClient.unbind("new-chat", handleNewChat);
-      };
-    }
-  }, [currentUser]);
 
   return loading ? (
     <Loader />
@@ -80,6 +61,7 @@ const ChatList = ({ currentChatId }) => {
       <div className="chats">
         {chats?.map((chat, index) => (
           <ChatBox
+            key={chat.$id}
             chat={chat}
             index={index}
             currentUser={currentUser}
